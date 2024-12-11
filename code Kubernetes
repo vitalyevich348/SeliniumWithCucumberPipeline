@@ -1,0 +1,69 @@
+pipeline {
+    agent {
+        kubernetes {
+            cloud 'kubernetes'  // Name of your Kubernetes configuration
+            label 'k8s-agent' / / Name of the Kubernetes agent (for example, worker node)
+            DefaultContainer 'jnlp' / / Container to be used to run pipeline
+        }
+    }
+
+    environment {
+        REGISTRY = 'your-docker-registry'
+        IMAGE_NAME = 'your-app-image'
+        KUBE_NAMESPACE = 'default'  // Specify your namespace
+        DEPLOYMENT_FILE = 'k8s/deployment.yaml'  // Path to the Kubernetes manifest file
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/your-username/your-repository.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    // Building a Docker image
+                    sh 'docker build -t $REGISTRY/$IMAGE_NAME .'
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    // Uploading the Docker image to the Docker registry
+                    sh 'docker push $REGISTRY/$IMAGE_NAME'
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    // Deploying the app to Kubernetes
+                    sh "kubectl apply -f $DEPLOYMENT_FILE --namespace=$KUBE_NAMESPACE"
+                }
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                script {
+                    // Checking the deployment status
+                    sh "kubectl rollout status deployment/your-deployment --namespace=$KUBE_NAMESPACE"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Deployment to Kubernetes was successful!'
+        }
+        failure {
+            echo 'Deployment failed!'
+        }
+    }
+}
